@@ -36,27 +36,35 @@ model = Model(model_folder)
 print("Vosk model loaded successfully.")
 
 # ------------------------------
-# 3. Flask routes
+# 3. Global recognizer
+# ------------------------------
+recognizer = KaldiRecognizer(model, 16000)
+
+# ------------------------------
+# 4. Flask route
 # ------------------------------
 @app.route('/')
 def index():
-    return render_template("index.html")  # frontend HTML for captions
+    return render_template("index.html")
 
 # ------------------------------
-# 4. Handle incoming audio via WebSocket
+# 5. Handle incoming audio via WebSocket
 # ------------------------------
 @socketio.on('audio_chunk')
 def handle_audio(data):
     """
     data: raw PCM 16-bit audio bytes from browser
     """
-    rec = KaldiRecognizer(model, 16000)
-    rec.AcceptWaveform(data)
-    result = json.loads(rec.Result())
-    emit('transcript', result['text'])
+    # Feed audio to recognizer
+    if recognizer.AcceptWaveform(data):
+        result = json.loads(recognizer.Result())
+    else:
+        result = json.loads(recognizer.PartialResult())
+
+    emit('transcript', result.get('text', ''))
 
 # ------------------------------
-# 5. Start server
+# 6. Start server
 # ------------------------------
 if __name__ == "__main__":
     print("Starting STT server on port 5000...")
